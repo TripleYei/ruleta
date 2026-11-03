@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Spinner Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e1e2f, #111119);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .subtitle {
+            color: #aaa;
+            margin-bottom: 30px;
+        }
+
+        /* Contenedor principal de la rueda */
+        .spinner-container {
+            position: relative;
+            width: 360px;
+            height: 360px;
+            margin-bottom: 40px;
+        }
+
+        /* El marcador/flecha que indica el premio */
+        .pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 35px solid #ff4757;
+            z-index: 10;
+            filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3));
+        }
+
+        /* La rueda física */
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 8px solid #ffd700;
+            position: relative;
+            overflow: hidden;
+            transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1); /* Efecto de frenado realista */
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.2), inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Eje central brillante */
+        .center-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background: #ffd700;
+            border-radius: 50%;
+            z-index: 5;
+            box-shadow: 0 0 15px #ffd700;
+        }
+
+        /* Botón de acción */
+        .spin-btn {
+            background: linear-gradient(45deg, #ffd700, #ff9f43);
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #111;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 159, 67, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .spin-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(255, 159, 67, 0.6);
+        }
+
+        .spin-btn:disabled {
+            background: #555;
+            color: #888;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Pantalla de resultados */
+        .result-display {
+            margin-top: 25px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            min-height: 36px;
+            color: #ffd700;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Lucky Spinner</h1>
+    <p class="subtitle">¡Prueba tu suerte hoy!</p>
+
+    <div class="spinner-container">
+        <div class="pointer"></div>
+        <canvas id="wheelCanvas" class="wheel" width="360" height="360"></canvas>
+        <div class="center-circle"></div>
+    </div>
+
+    <button id="spinBtn" class="spin-btn">GIRAR RUEDA</button>
+    <div id="result" class="result-display"></div>
+
+    <script>
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const resultDisplay = document.getElementById('result');
+
+        // Configuración de premios (Fácilmente modificable)
+        const prizes = [
+            { text: "Premio Gordo", color: "#10ac84" },
+            { text: "Intenta de Nuevo", color: "#2e2f45" },
+            { text: "$10 USD", color: "#22a6b3" },
+            { text: "Cupón 15%", color: "#30336b" },
+            { text: "Suerte Pérdida", color: "#ee5253" },
+            { text: "$50 USD", color: "#f1c40f" },
+            { text: "Ebook Gratis", color: "#9b59b6" },
+            { text: "Casi Ganas", color: "#34495e" }
+        ];
+
+        const numSegments = prizes.length;
+        const segmentAngle = (2 * Math.PI) / numSegments;
+        let currentRotation = 0;
+        let isSpinning = false;
+
+        // Dibuja la rueda dinámicamente usando Canvas HTML5
+        function drawWheel() {
+            const radius = canvas.width / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            prizes.forEach((prize, i) => {
+                const angle = i * segmentAngle;
+                
+                // Dibujar el sector circular
+                ctx.beginPath();
+                ctx.fillStyle = prize.color;
+                ctx.moveTo(radius, radius);
+                ctx.arc(radius, radius, radius, angle, angle + segmentAngle);
+                ctx.closePath();
+                ctx.fill();
+
+                // Dibujar el texto del premio
+                ctx.save();
+                ctx.translate(radius, radius);
+                ctx.rotate(angle + segmentAngle / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 14px sans-serif";
+                ctx.fillText(prize.text, radius - 25, 5);
+                ctx.restore();
+            });
+        }
+
+        function spin() {
+            if (isSpinning) return;
+            isSpinning = true;
+            spinBtn.disabled = true;
+            resultDisplay.textContent = "¡Girando... 🎰!";
+
+            // 1. Calcular giros completos extra (3 a 5 vueltas completas) + ángulo aleatorio
+            const extraDegrees = Math.floor(Math.random() * 360);
+            const totalSpins = 3 + Math.floor(Math.random() * 3); 
+            const newRotation = currentRotation + (totalSpins * 360) + extraDegrees;
+
+            // 2. Aplicar la rotación mediante CSS usando la propiedad transform
+            canvas.style.transform = `rotate(${newRotation}deg)`;
+            currentRotation = newRotation;
+
+            // 3. Procesar qué premio cayó cuando termine la animación (4 segundos)
+            setTimeout(() => {
+                isSpinning = false;
+                spinBtn.disabled = false;
+
+                // Calcular el ángulo final normalizado (entre 0 y 360 grados)
+                const actualDegrees = currentRotation % 360;
+
+                /* 
+                  Matemáticas del puntero: 
+                  El puntero está arriba (270° en el plano matemático). 
+                  Al girar la rueda a la derecha (sentido horario), los premios se mueven en sentido opuesto.
+                */
+                const pointerAngleDegrees = 270;
+                let winningIndex = Math.floor((pointerAngleDegrees - actualDegrees + 360) % 360 / (360 / numSegments));
+                
+                // Mostrar el resultado en pantalla
+                const prizeWon = prizes[winningIndex].text;
+                resultDisplay.textContent = `🎉 ¡Ganaste: ${prizeWon}! 🎉`;
+            }, 4000); // Mismo tiempo que la propiedad transition en CSS
+        }
+
+        // Inicializar
+        drawWheel();
+        spinBtn.addEventListener('click', spin);
+    </script>
+</body>
+</html>
